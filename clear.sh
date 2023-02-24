@@ -8,3 +8,5 @@ rm -- *.dot
 rm flowchart.pn*
 rm -r msdial
 rm nextflow_schema.json
+rm -r results/*
+rm -r work/*

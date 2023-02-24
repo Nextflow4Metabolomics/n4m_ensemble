@@ -99,7 +99,11 @@ if __name__ == '__main__':
         default="quantification.csv", required=False)
 
     args = parser.parse_args()
-    summary_df = quantification(args.input_1, args.input_2, args.input_merged, args.col_name_annotation_status, \
+
+    table_1 = pd.read_csv(args.input_1, delimiter="\t")
+    table_2 = pd.read_csv(args.input_2, delimiter="\t")
+    table_merged = pd.read_csv(args.input_merged)
+    summary_df = quantification(table_1, table_2, table_merged, args.col_name_annotation_status, \
                                 args.desired_identification_status, args.col_name_metabolite_name)
 
     summary_df.to_csv(args.output, index=False)

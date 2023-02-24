@@ -30,18 +30,13 @@
 version='1.0dev'
 timestamp='20230220'
 
-DATA_DIR = Channel.fromPath(params.input_dir, type: 'dir') // Location of folder storing positive data
+TABLE_1 = Channel.fromPath(params.table_1)
+TABLE_2 = Channel.fromPath(params.table_2)
+TABLE_1.into{TABLE_1_P; TABLE_1_Q}
+TABLE_2.into{TABLE_2_P; TABLE_2_Q}
 
-// Config files
-MSDIAL_CONFIG = Channel.fromPath(params.msdial_config)
-MSFLO_CONFIG = Channel.fromPath(params.msflo_config)
-
-// Library
-MS1_LIBRARY = Channel.fromPath(params.ms1_library)
-MS2_LIBRARY = Channel.fromPath(params.ms2_library)
-
-// Reference files
-REF = Channel.fromPath(params.ref)
+PEAK_MERGE_CODE = Channel.fromPath(params.peak_merge_code)
+QUANTIFICATION_CODE = Channel.fromPath(params.quantification_code)
 
 /**
     Basic running information
@@ -82,6 +77,8 @@ if (params.help) {
     exit 1
 }
 
+println "After help"
+
 custom_runName = params.name
 if (!(workflow.runName ==~ /[a-z]+_[a-z]+/)) {
     custom_runName = workflow.runName
@@ -106,25 +103,20 @@ if (workflow.profile.contains('awsbatch')) {
     summary['AWS CLI']      = params.awscli
 }
 summary['Config Profile'] = workflow.profile
-if (params.config_profile_description) summary['Config Profile Description'] = params.config_profile_description
-if (params.config_profile_contact)     summary['Config Profile Contact']     = params.config_profile_contact
-if (params.config_profile_url)         summary['Config Profile URL']         = params.config_profile_url
 summary['Config Files'] = workflow.configFiles.join(', ')
-if (params.email || params.email_on_fail) {
-    summary['E-mail Address']    = params.email
-    summary['E-mail on failure'] = params.email_on_fail
-}
 log.info summary.collect { k,v -> "${k.padRight(18)}: $v" }.join("\n")
 log.info "-\033[2m--------------------------------------------------\033[0m-"
 
 /** 
-    Process description: Process for running MS-DIAL with negative mode batchfile and data to generate peak table of negative mode.
-    Inputs: MS-DIAL config file; raw .mzML data; MS1 library; MS2 library; reference file.
-    Outputs: The peak table produced by MS-DIAL after processing all raw data.
+    Process description: Merging two peak tables.
+    Inputs: Two peak tables that will be merges. Note that "table_2" should have less rows than "table_1".
+    Outputs: The merged peak table.
 */
 process peak_merge {
 
     echo true
+
+    println "enter peak merge process"
 
     publishDir './results/', mode: 'copy'
 
@@ -132,40 +124,33 @@ process peak_merge {
     file table_1 from TABLE_1_P // Location of the first peak table
     file table_2 from TABLE_2_P // location of the second peak table
     file peak_merge_code from PEAK_MERGE_CODE // Locatio of the python code for merging peaks
-    val m from COLUMN_NAME_FOR_MZ_VALUES // 
-    val r from COLUMN_NAME_FOR_RT_VALUES //
-    val p from PPM_THRESHOLD_FOR_MERGING //
-    val t from RT_THRESHOLD_FOR_MERGING // retention tiem threshold for merging
-    val o from MERGING_RESULT // output file path and name
 
     output:
-    file "*.csv" into TABLE_MERGED // merged peak table.
+    file "*.csv" into TABLE_MERGED // merged peak table
 
     shell:
     """
     echo "peak merging" &&
-    python ${peak_merge_code} -i ${table_1} -j ${table_2} -m ${m} -r ${r} -p ${p} -t ${t} -o ${o}
+    python3 ${peak_merge_code} -i ${table_1} -j ${table_2} -m ${params.column_name_for_mz_values} -r ${params.column_name_for_rt_values} -p ${params.ppm_threshold_for_merging} -t ${params.rt_threshold_for_merging} -o ${params.merging_result}
     """
 }
 
 /** 
-    Process description: MS-FLO download.
-    inputs: N/A.
-    outputs: The MS-FLO repo.
+    Process description: Quantify peak detection and merging results.
+    inputs: Two peak tables and the merged peak table.
+    outputs: The summary table.
 */
 process quantification {
     
     publishDir './results/', mode: 'copy'
+
+    println "enter quantification process"
 
     input:
     file table_1 from TABLE_1_Q // Location of the first peak table
     file table_2 from TABLE_2_Q // location of the second peak table
     file table_merged from TABLE_MERGED //
     file quantification_code from QUANTIFICATION_CODE
-    val a from COLUMN_NAME_FOR_ANNOTATION_STATUS // column_name_for_annotation_status
-    val d from DESIRED_IDENTIFICATION_STATUS // desired_identification_status
-    val m from COLUMN_NAME_FOR_ANNOTATED_METABOLITES // column_name_for_annotated_metabolites
-    val o from QUANTIFICATION_RESULT // output file location
 
     output:
     file "*.csv" into QUANTIFICATION
@@ -173,7 +158,7 @@ process quantification {
     shell:
     """
     echo "quantification" &&
-    python ${quantification_code} -i ${table_1} -j ${table_2} -k ${table_merged} -a ${a} -d ${d} -m ${m} -o ${o}
+    python3 ${quantification_code} -i ${table_1} -j ${table_2} -k ${table_merged} -a ${params.column_name_for_annotation_status} -d ${params.desired_identification_status} -m ${params.column_name_for_annotated_metabolites} -o ${params.quantification_result}
     """
 
 }

@@ -59,23 +59,29 @@ def overlapping_peaks(t_1, t_2, col_name_mz, col_name_rt, ppm_threshold, rt_tole
 
     flag = 0
     flagged_rows = []
-    total = len(t_2)
-    for i in range(len(t_2)):
-        logger.info(str(i*100/total) + "%", end="\r")
+    total = t_2.shape[0]
+    if type(t_1[col_name_mz].iloc[0]) == np.float64:
+        no_string = 1
+    else:
+        no_string = 0      
+    mz_list = []
+    rt_list = []
+    if no_string == 1:
+        mz_list = list(t_1[col_name_mz])
+        rt_list = list(t_1[col_name_rt])
+    else:
+        for mz_element in t_1[col_name_mz].str.split("_"):
+            mz_list += [float(x) for x in mz_element]
+        for rt_element in t_1[col_name_rt].str.split("_"):
+            rt_list += [float(x) for x in rt_element]
+    for i in range(total):
+        print(str(i*100/total) + "%", end="\r")
         second_flag = 0
-        if type(t_2[col_name_mz].iloc[i]) != np.float64:
-            mz_list = list(table_1[col_name_mz].str.split("_", expand=True)[0]) + [x for x in list(table_1[col_name_mz].str.split("_", expand=True)[1]) if str(x)!="None"]
-            rt_list = list(table_1[col_name_rt].str.split("_", expand=True)[0]) + [x for x in list(table_1[col_name_rt].str.split("_", expand=True)[1]) if str(x)!="None"]
-        else:
-            mz_list = list(table_1[col_name_mz])
-            rt_list = list(table_1[col_name_rt])
-        mz_list = [float(x) for x in mz_list]
-        rt_list = [float(x) for x in rt_list]
         if (type(t_2[col_name_mz].iloc[i]) == np.float64) or ("_" not in t_2[col_name_mz].iloc[i]):
             mz = float(t_2[col_name_mz].iloc[i])
             rt = float(t_2[col_name_rt].iloc[i])
             nearest_id = mz_list.index(nearest_value(mz_list, mz))
-            if (ppm_calculation(mz, mz_list[nearest_id]) <= ppm_threshold) and (abs(rt - rt_list[nearest_id]) < rt_tolerance):
+            if (ppm_calculation(mz, mz_list[nearest_id]) <= float(ppm_threshold)) and (abs(rt - rt_list[nearest_id]) < float(rt_tolerance)):
                 continue
             else:
                 flag = 1
@@ -83,7 +89,7 @@ def overlapping_peaks(t_1, t_2, col_name_mz, col_name_rt, ppm_threshold, rt_tole
             for j in range(len(t_2[col_name_mz].iloc[i].split("_"))):
                 mz = float(t_2[col_name_mz].iloc[i].split("_")[j])
                 rt = float(t_2[col_name_rt].iloc[i].split("_")[j])
-                if (ppm_calculation(mz, mz_list[nearest_id]) <= ppm_threshold) and (abs(rt - rt_list[nearest_id]) < rt_tolerance):
+                if (ppm_calculation(mz, mz_list[nearest_id]) <= float(ppm_threshold)) and (abs(rt - rt_list[nearest_id]) < float(rt_tolerance)):
                     second_flag = 1
                     continue
             if second_flag == 0:
@@ -122,6 +128,9 @@ if __name__ == '__main__':
         default="peak_merged.csv", required=False)
 
     args = parser.parse_args()
-    peak_merged = overlapping_peaks(args.input_1, args.input_2, args.col_name_mz, args.col_name_rt, \
+
+    table_1 = pd.read_csv(args.input_1, delimiter="\t")
+    table_2 = pd.read_csv(args.input_2, delimiter="\t")
+    peak_merged = overlapping_peaks(table_1, table_2, args.col_name_mz, args.col_name_rt, \
                                     args.ppm_threshold, args.rt_tolerance)
     peak_merged.to_csv(args.output, index=False)
