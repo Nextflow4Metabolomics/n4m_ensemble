@@ -42,6 +42,15 @@ def ppm_calculation(x, y):
 def nearest_value(lst, K):
     return lst[min(range(len(lst)), key = lambda i: abs(lst[i]-K))]
 
+def MS1_match(mz, rt, mz_list, rt_list, col_name_mz, col_name_rt, ppm_threshold, rt_tolerance):
+#    print("enter match")
+    df = pd.DataFrame(list(zip(mz_list, rt_list)),
+               columns =[col_name_mz, col_name_rt])
+    if len(df[(ppm_calculation(mz, df[col_name_mz])<=ppm_threshold) & (abs(df[col_name_rt] - rt) < rt_tolerance)])>0:
+        return True
+    else:
+        return False
+
 def overlapping_peaks(t_1, t_2, col_name_mz, col_name_rt, ppm_threshold, rt_tolerance):
     """Merging peaks from two peak tables.
 
@@ -80,8 +89,7 @@ def overlapping_peaks(t_1, t_2, col_name_mz, col_name_rt, ppm_threshold, rt_tole
         if (type(t_2[col_name_mz].iloc[i]) == np.float64) or ("_" not in t_2[col_name_mz].iloc[i]):
             mz = float(t_2[col_name_mz].iloc[i])
             rt = float(t_2[col_name_rt].iloc[i])
-            nearest_id = mz_list.index(nearest_value(mz_list, mz))
-            if (ppm_calculation(mz, mz_list[nearest_id]) <= float(ppm_threshold)) and (abs(rt - rt_list[nearest_id]) < float(rt_tolerance)):
+            if MS1_match(mz, rt, mz_list, rt_list, col_name_mz, col_name_rt, ppm_threshold, rt_tolerance):
                 continue
             else:
                 flag = 1
@@ -89,7 +97,8 @@ def overlapping_peaks(t_1, t_2, col_name_mz, col_name_rt, ppm_threshold, rt_tole
             for j in range(len(t_2[col_name_mz].iloc[i].split("_"))):
                 mz = float(t_2[col_name_mz].iloc[i].split("_")[j])
                 rt = float(t_2[col_name_rt].iloc[i].split("_")[j])
-                if (ppm_calculation(mz, mz_list[nearest_id]) <= float(ppm_threshold)) and (abs(rt - rt_list[nearest_id]) < float(rt_tolerance)):
+                nearest_id = mz_list.index(nearest_value(mz_list, mz))
+                if MS1_match(mz, rt, mz_list, rt_list, col_name_mz, col_name_rt, ppm_threshold, rt_tolerance):
                     second_flag = 1
                     continue
             if second_flag == 0:
