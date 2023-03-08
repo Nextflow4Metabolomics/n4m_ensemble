@@ -66,6 +66,9 @@ def overlapping_peaks(t_1, t_2, col_name_mz, col_name_rt, ppm_threshold, rt_tole
         The merged peak table.
     """
 
+    ppm_threshold = float(ppm_threshold)
+    rt_tolerance = float(rt_tolerance)
+    
     flag = 0
     flagged_rows = []
     total = t_2.shape[0]
