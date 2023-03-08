@@ -1,0 +1,22 @@
+name: n4m_ensemble_CI
+run-name: ${{ github.actor }} is learning GitHub Actions
+on:
+  push:
+    branches:
+    - main
+  schedule:
+    - cron: "0 2 * * 1-5"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '14'
+      - run: sudo apt-get -qq update
+      - run: sudo apt-get -qq -y install graphviz coreutils
+      - run: wget -qO- https://get.nextflow.io | bash
+      - run: mkdir -p ${HOME}/.local/bin; cp nextflow ~/.local/bin
+      - run: echo "${HOME}/.local/bin" >> $GITHUB_PATH
+      - run: bash .CI_test.sh
